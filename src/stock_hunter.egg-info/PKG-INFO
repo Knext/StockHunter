@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: stock-hunter
+Version: 0.1.0
+Requires-Python: >=3.11
+Requires-Dist: pykrx>=1.0.45
+Requires-Dist: pandas>=2.0
+Requires-Dist: numpy>=1.24
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: httpx>=0.24; extra == "dev"
+Provides-Extra: api
+Requires-Dist: fastapi>=0.100; extra == "api"
+Requires-Dist: uvicorn>=0.23; extra == "api"
+Requires-Dist: pydantic>=2.0; extra == "api"

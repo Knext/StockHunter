@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:www.letterson.co.kr)",
+      "WebFetch(domain:letterson.co.kr)",
+      "WebFetch(domain:www.pinterest.com)",
+      "WebFetch(domain:www.neword.co)",
+      "WebFetch(domain:store.kyobobook.co.kr)",
+      "WebFetch(domain:www.aladin.co.kr)",
+      "WebFetch(domain:yellow.kr)",
+      "WebFetch(domain:www.facebook.com)",
+      "WebFetch(domain:books.google.com)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(pkill -f \"uvicorn src.main:app\")",
+      "Skill(schedule)",
+      "Bash(chmod +x:*)",
+      "Bash(launchctl load:*)",
+      "Bash(launchctl list:*)",
+      "Bash(PYTHONPATH=. python:*)",
+      "Bash(open:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
