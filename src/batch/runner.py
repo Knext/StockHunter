@@ -13,7 +13,7 @@ from pathlib import Path
 from src.batch.types import BatchResult
 from src.config import load_config
 from src.data.cache import CachedDataFetcher
-from src.data.krx import get_all_stocks
+from src.data.krx import INDEX_CODES, get_all_stocks, get_index_data
 from src.screener.engine import screen_stock
 from src.screener.types import DreamTeamSignal
 from src.types.ohlcv import StockData
@@ -142,6 +142,7 @@ async def run_batch(
         return BatchResult(
             signals=(),
             stock_data_map={},
+            index_data={},
             total_stocks=0,
             success_count=0,
             failed_codes=(),
@@ -189,6 +190,17 @@ async def run_batch(
     success_count = total_stocks - len(all_failed)
     finished_at = datetime.now().isoformat()
 
+    index_data: dict[str, StockData] = {}
+    for idx_code in INDEX_CODES:
+        try:
+            idx_sd = await loop.run_in_executor(
+                None, get_index_data, idx_code, days, config,
+            )
+            index_data[idx_code] = idx_sd
+            logger.info("지수 수집 완료: %s (%d일봉)", idx_code, len(idx_sd.daily))
+        except Exception:
+            logger.warning("지수 수집 실패: %s", idx_code)
+
     logger.info(
         "배치 스크리닝 완료: 전체 %d / 성공 %d / 실패 %d / 시그널 %d",
         total_stocks,
@@ -200,6 +212,7 @@ async def run_batch(
     return BatchResult(
         signals=tuple(sorted_signals),
         stock_data_map=all_stock_data,
+        index_data=index_data,
         total_stocks=total_stocks,
         success_count=success_count,
         failed_codes=tuple(all_failed),
@@ -230,7 +243,7 @@ async def run_full_pipeline(
     """
     from src.report.generator import generate_report
     from src.report.types import ReportConfig
-    from src.visualization.chart import generate_all_charts
+    from src.visualization.chart import generate_all_charts, generate_index_chart
 
     result = await run_batch(
         market=market,
@@ -261,8 +274,16 @@ async def run_full_pipeline(
         )
         logger.info("차트 생성 완료: %d/%d", len(chart_paths), len(result.signals))
 
+    index_chart_paths: dict[str, Path] = {}
+    for idx_code, idx_sd in result.index_data.items():
+        try:
+            path = generate_index_chart(idx_sd, chart_dir)
+            index_chart_paths[idx_code] = path
+        except Exception:
+            logger.warning("지수 차트 생성 실패: %s", idx_code)
+
     report_config = ReportConfig(output_dir=Path("reports"))
-    report_path = generate_report(result, chart_paths, report_config)
+    report_path = generate_report(result, chart_paths, index_chart_paths, report_config)
 
     logger.info("파이프라인 완료: %s", report_path.resolve())
     return report_path

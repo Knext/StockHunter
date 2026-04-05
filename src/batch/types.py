@@ -23,6 +23,7 @@ class BatchResult:
 
     signals: tuple[DreamTeamSignal, ...]
     stock_data_map: dict[str, StockData]
+    index_data: dict[str, StockData]
     total_stocks: int
     success_count: int
     failed_codes: tuple[str, ...]

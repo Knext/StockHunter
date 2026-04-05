@@ -407,6 +407,85 @@ body {{
     border-radius: 8px;
 }}
 
+/* ── INDEX SECTION ── */
+.index-section {{
+    margin-bottom: 24px;
+}}
+
+.index-section .section-label {{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}}
+
+.index-cards {{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}}
+
+.index-card {{
+    background: var(--color-white);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+}}
+
+.index-header {{
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}}
+
+.index-name {{
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: normal;
+}}
+
+.index-price {{
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: -0.44px;
+}}
+
+.index-card .chart-container img {{
+    width: 100%;
+    max-width: none;
+}}
+
+/* ── INDEX TOGGLE ── */
+.index-toggle {{
+    display: flex;
+    gap: 16px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}}
+
+.index-toggle label {{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 480;
+    letter-spacing: -0.14px;
+    cursor: pointer;
+    user-select: none;
+}}
+
+.index-toggle input[type="checkbox"] {{
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-black);
+    cursor: pointer;
+}}
+
 /* ── APPENDIX ── */
 .appendix {{
     background: var(--glass-dark);
@@ -546,6 +625,27 @@ FILTER_SCRIPT = """
 
     gradeSelect.addEventListener('change', applyFilter);
 
+    /* index toggle */
+    var toggleKospi = document.getElementById('toggleKospi');
+    var toggleKosdaq = document.getElementById('toggleKosdaq');
+
+    function applyIndexToggle() {{
+        var kospiCards = document.querySelectorAll('[data-index="KS11"]');
+        var kosdaqCards = document.querySelectorAll('[data-index="KQ11"]');
+        kospiCards.forEach(function(c) {{ c.style.display = toggleKospi.checked ? '' : 'none'; }});
+        kosdaqCards.forEach(function(c) {{ c.style.display = toggleKosdaq.checked ? '' : 'none'; }});
+
+        var indexSection = document.getElementById('indexSection');
+        if (indexSection) {{
+            var anyVisible = toggleKospi.checked || toggleKosdaq.checked;
+            indexSection.style.display = anyVisible ? '' : 'none';
+        }}
+    }}
+
+    if (toggleKospi) toggleKospi.addEventListener('change', applyIndexToggle);
+    if (toggleKosdaq) toggleKosdaq.addEventListener('change', applyIndexToggle);
+    applyIndexToggle();
+
     /* row click → scroll right panel to card */
     rows.forEach(function(row) {{
         row.addEventListener('click', function() {{
@@ -630,9 +730,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="right-panel">
             <div class="right-panel-header">
                 <span class="panel-title">Detail Charts</span>
+                <div class="index-toggle">
+                    <label><input type="checkbox" id="toggleKospi" checked> 코스피</label>
+                    <label><input type="checkbox" id="toggleKosdaq" checked> 코스닥</label>
+                </div>
                 <span class="result-count" id="resultCount"></span>
             </div>
             <div class="right-scroll">
+                <div class="index-section" id="indexSection">
+                    <div class="index-cards">
+                        {index_html}
+                    </div>
+                </div>
+
                 {sections_html}
 
                 <div class="appendix">

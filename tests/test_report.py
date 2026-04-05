@@ -49,6 +49,7 @@ def _make_batch_result(
     return BatchResult(
         signals=signals,
         stock_data_map={},
+        index_data={},
         total_stocks=100,
         success_count=95,
         failed_codes=failed_codes,

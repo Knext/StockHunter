@@ -168,14 +168,65 @@ def _build_appendix_html(batch_result: BatchResult) -> str:
     )
 
 
+def _build_index_html(
+    batch_result: BatchResult,
+    index_chart_paths: dict[str, Path],
+    embed: bool,
+) -> str:
+    """지수 섹션 HTML을 생성한다."""
+    if not batch_result.index_data:
+        return ""
+
+    cards: list[str] = []
+    for idx_code, idx_sd in batch_result.index_data.items():
+        name = idx_sd.info.name
+        last_close = ""
+        change_html = ""
+        if idx_sd.daily and len(idx_sd.daily) >= 2:
+            cur = idx_sd.daily[-1].close
+            prev = idx_sd.daily[-2].close
+            if cur is not None and prev is not None:
+                diff = cur - prev
+                pct = (diff / prev) * 100
+                sign = "+" if diff >= 0 else ""
+                color = "#D32F2F" if diff >= 0 else "#1976D2"
+                last_close = f"{cur:,.2f}"
+                change_html = (
+                    f'<span style="color:{color}; font-weight:480;">'
+                    f"{sign}{diff:,.2f} ({sign}{pct:.2f}%)</span>"
+                )
+        elif idx_sd.daily:
+            cur = idx_sd.daily[-1].close
+            if cur is not None:
+                last_close = f"{cur:,.2f}"
+
+        chart_html = _build_chart_html(idx_code, index_chart_paths, embed)
+
+        cards.append(
+            f'<div class="index-card" data-index="{idx_code}">'
+            f'<div class="index-header">'
+            f'<span class="index-name">{name}</span>'
+            f'<span class="index-price">{last_close}</span>'
+            f'{change_html}'
+            f'</div>'
+            f'<div class="chart-container">{chart_html}</div>'
+            f'</div>'
+        )
+
+    return "\n".join(cards)
+
+
 def generate_report(
     batch_result: BatchResult,
     chart_paths: dict[str, Path],
+    index_chart_paths: dict[str, Path] | None = None,
     config: ReportConfig | None = None,
 ) -> Path:
     """배치 결과 + 차트를 종합하여 HTML 보고서를 생성한다."""
     if config is None:
         config = ReportConfig()
+    if index_chart_paths is None:
+        index_chart_paths = {}
 
     now = datetime.now()
     date_str = now.strftime("%Y-%m-%d")
@@ -185,12 +236,17 @@ def generate_report(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "report.html"
 
-    groups = _group_signals_by_grade(batch_result.signals)
+    filtered_signals = tuple(
+        s for s in batch_result.signals if s.signal_strength >= config.min_strength
+    )
+
+    groups = _group_signals_by_grade(filtered_signals)
     grade_counts = {grade: len(sigs) for grade, sigs in groups.items()}
 
     grade_bar_html = _build_grade_bar_html(grade_counts)
-    summary_rows_html = _build_summary_rows_html(batch_result.signals)
+    summary_rows_html = _build_summary_rows_html(filtered_signals)
     sections_html = _build_sections_html(groups, chart_paths, config.embed_charts)
+    index_html = _build_index_html(batch_result, index_chart_paths, config.embed_charts)
     appendix_html = _build_appendix_html(batch_result)
 
     filter_options_parts: list[str] = []
@@ -209,10 +265,11 @@ def generate_report(
         market=batch_result.market,
         total_stocks=batch_result.total_stocks,
         success_count=batch_result.success_count,
-        signal_count=len(batch_result.signals),
+        signal_count=len(filtered_signals),
         grade_bar_html=grade_bar_html,
         summary_rows_html=summary_rows_html,
         sections_html=sections_html,
+        index_html=index_html,
         appendix_html=appendix_html,
         filter_options=filter_options,
     )

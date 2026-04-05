@@ -236,3 +236,69 @@ def get_stock_data(
     )
 
     return StockData(info=info, daily=daily, weekly=weekly)
+
+
+INDEX_CODES = {
+    "KS11": "코스피",
+    "KQ11": "코스닥",
+}
+
+
+def get_index_data(
+    index_code: str,
+    days: int = 365,
+    config: Config | None = None,
+) -> StockData:
+    """시장 지수 데이터를 FinanceDataReader로 조회합니다.
+
+    Args:
+        index_code: 지수 코드 ("KS11"=코스피, "KQ11"=코스닥)
+        days: 조회할 과거 일수
+        config: 설정 객체
+
+    Returns:
+        StockData (지수 정보 + 일봉 + 주봉)
+    """
+    cfg = config or load_config()
+
+    end = date.today()
+    start = end - timedelta(days=days)
+
+    name = INDEX_CODES.get(index_code, index_code)
+    logger.info("지수 조회: %s (%s ~ %s)", name, start, end)
+
+    df = fdr.DataReader(index_code, start, end)
+    _rate_limit(cfg.rate_limit_seconds)
+
+    if df.empty:
+        logger.warning("지수 데이터 없음: %s", index_code)
+        info = StockInfo(code=index_code, name=name, market="INDEX", sector="")
+        return StockData(info=info, daily=(), weekly=())
+
+    candles: list[OHLCV] = []
+    for idx, row in df.iterrows():
+        row_date = idx.date() if hasattr(idx, "date") else idx
+        open_val = float(row["Open"]) if row["Open"] != 0 else None
+        high_val = float(row["High"]) if row["High"] != 0 else None
+        low_val = float(row["Low"]) if row["Low"] != 0 else None
+        close_val = float(row["Close"]) if row["Close"] != 0 else None
+        volume_val = int(row["Volume"]) if row["Volume"] != 0 else None
+
+        candles.append(OHLCV(
+            date=row_date,
+            open=open_val,
+            high=high_val,
+            low=low_val,
+            close=close_val,
+            volume=volume_val,
+        ))
+
+    daily = tuple(candles)
+    weekly = _daily_to_weekly(daily)
+    info = StockInfo(code=index_code, name=name, market="INDEX", sector="지수")
+
+    logger.info(
+        "지수 조회 완료: %s (일봉 %d, 주봉 %d)", name, len(daily), len(weekly),
+    )
+
+    return StockData(info=info, daily=daily, weekly=weekly)

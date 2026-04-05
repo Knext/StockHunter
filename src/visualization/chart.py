@@ -536,3 +536,80 @@ def generate_all_charts(
 
     logger.info("차트 생성 완료: %d/%d", len(results), len(signals))
     return results
+
+
+def generate_index_chart(
+    stock_data: StockData,
+    output_dir: Path,
+) -> Path:
+    """시장 지수 차트를 PNG로 생성한다.
+
+    종목 차트와 동일한 구조: 캔들스틱 + 거래량 + DMI + 스토캐스틱 + 채킨 + MACD.
+
+    Args:
+        stock_data: 지수 OHLCV 데이터
+        output_dir: 출력 디렉토리
+
+    Returns:
+        생성된 PNG 파일 경로
+    """
+    setup_korean_font()
+
+    daily_sliced = _slice_recent(stock_data.daily, CANDLE_DAYS)
+    if not daily_sliced:
+        raise ValueError(f"지수 데이터 없음: {stock_data.info.code}")
+
+    x_indices = list(range(len(daily_sliced)))
+    date_to_x: dict[date, int] = {
+        d.date: i for i, d in enumerate(daily_sliced)
+    }
+
+    fig = plt.figure(figsize=(CHART_WIDTH, CHART_HEIGHT))
+    gs = GridSpec(
+        6, 1, figure=fig,
+        height_ratios=[4, 1, 1.5, 1.5, 1.5, 1.5],
+        hspace=0.3,
+    )
+
+    ax_candle = fig.add_subplot(gs[0])
+    ax_volume = fig.add_subplot(gs[1], sharex=ax_candle)
+    ax_dmi = fig.add_subplot(gs[2], sharex=ax_candle)
+    ax_stoch = fig.add_subplot(gs[3], sharex=ax_candle)
+    ax_chaikin = fig.add_subplot(gs[4], sharex=ax_candle)
+    ax_macd = fig.add_subplot(gs[5], sharex=ax_candle)
+
+    all_axes = [ax_candle, ax_volume, ax_dmi, ax_stoch, ax_chaikin, ax_macd]
+
+    title = f"{stock_data.info.name} 지수"
+    ax_candle.set_title(title, fontsize=14, fontweight="bold")
+
+    _draw_candlestick(
+        ax_candle, daily_sliced, x_indices,
+        signal_date=date(1900, 1, 1),
+    )
+    _draw_volume(ax_volume, daily_sliced, x_indices)
+    _draw_dmi(ax_dmi, stock_data.daily, date_to_x)
+    _draw_stochastic(ax_stoch, stock_data.daily, date_to_x)
+    _draw_chaikin(ax_chaikin, stock_data.daily, date_to_x)
+    _draw_macd(ax_macd, stock_data.weekly, date_to_x)
+
+    _format_x_axis(all_axes, daily_sliced, x_indices)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    safe_name = _sanitize_filename(stock_data.info.name)
+    filename = f"index_{stock_data.info.code}_{safe_name}.png"
+    output_path = output_dir / filename
+
+    try:
+        fig.savefig(
+            output_path,
+            dpi=CHART_DPI,
+            bbox_inches="tight",
+            facecolor="white",
+        )
+        logger.info("지수 차트 생성 완료: %s", output_path)
+    finally:
+        plt.close(fig)
+
+    return output_path

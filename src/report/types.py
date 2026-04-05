@@ -15,3 +15,4 @@ class ReportConfig:
     output_dir: Path = Path("reports")
     embed_charts: bool = True
     title: str = "드림팀 스크리닝 보고서"
+    min_strength: int = 2

@@ -92,6 +92,7 @@ class TestRunBatch:
         }
 
         with (
+            patch("src.batch.runner.get_index_data", return_value=_make_stock_data("KS11")),
             patch("src.batch.runner.get_all_stocks", return_value=stocks),
             patch("src.batch.runner.load_config"),
             patch("src.batch.runner.CachedDataFetcher") as mock_fetcher_cls,
@@ -133,6 +134,7 @@ class TestRunBatch:
             return _make_stock_data(code)
 
         with (
+            patch("src.batch.runner.get_index_data", return_value=_make_stock_data("KS11")),
             patch("src.batch.runner.get_all_stocks", return_value=stocks),
             patch("src.batch.runner.load_config"),
             patch("src.batch.runner.CachedDataFetcher") as mock_fetcher_cls,
@@ -156,6 +158,7 @@ class TestRunBatch:
     async def test_empty_stock_list(self):
         """빈 종목 리스트: 빈 결과 반환."""
         with (
+            patch("src.batch.runner.get_index_data", return_value=_make_stock_data("KS11")),
             patch("src.batch.runner.get_all_stocks", return_value=[]),
             patch("src.batch.runner.load_config"),
             patch("src.batch.runner.CachedDataFetcher"),
@@ -173,6 +176,7 @@ class TestRunBatch:
         stocks = [_make_stock_info("000001")]
 
         with (
+            patch("src.batch.runner.get_index_data", return_value=_make_stock_data("KS11")),
             patch("src.batch.runner.get_all_stocks", return_value=stocks),
             patch("src.batch.runner.load_config"),
             patch("src.batch.runner.CachedDataFetcher") as mock_fetcher_cls,
@@ -204,6 +208,7 @@ class TestRunBatch:
         ]
 
         with (
+            patch("src.batch.runner.get_index_data", return_value=_make_stock_data("KS11")),
             patch("src.batch.runner.get_all_stocks", return_value=stocks),
             patch("src.batch.runner.load_config"),
             patch("src.batch.runner.CachedDataFetcher") as mock_fetcher_cls,
@@ -224,6 +229,7 @@ class TestRunBatch:
         stocks = [_make_stock_info(f"{i:06d}") for i in range(5)]
 
         with (
+            patch("src.batch.runner.get_index_data", return_value=_make_stock_data("KS11")),
             patch("src.batch.runner.get_all_stocks", return_value=stocks),
             patch("src.batch.runner.load_config"),
             patch("src.batch.runner.CachedDataFetcher") as mock_fetcher_cls,
@@ -243,6 +249,7 @@ class TestRunBatch:
     async def test_batch_result_is_frozen(self):
         """BatchResult가 불변인지 확인."""
         with (
+            patch("src.batch.runner.get_index_data", return_value=_make_stock_data("KS11")),
             patch("src.batch.runner.get_all_stocks", return_value=[]),
             patch("src.batch.runner.load_config"),
             patch("src.batch.runner.CachedDataFetcher"),

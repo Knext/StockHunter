@@ -9,10 +9,11 @@ from src.batch.types import BatchResult
 from src.config import load_config
 from src.data.cache import CachedDataFetcher
 from src.data.krx import get_all_stocks
+from src.data.krx import INDEX_CODES, get_index_data
 from src.report.generator import generate_report
 from src.report.types import ReportConfig
 from src.screener.engine import screen_stock
-from src.visualization.chart import generate_all_charts
+from src.visualization.chart import generate_all_charts, generate_index_chart
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,9 +57,21 @@ async def run_test():
     signals.sort(key=lambda s: s.signal_strength, reverse=True)
     finished_at = datetime.now().isoformat()
 
+    index_data = {}
+    for idx_code in INDEX_CODES:
+        try:
+            idx_sd = await loop.run_in_executor(
+                None, get_index_data, idx_code, 365, config,
+            )
+            index_data[idx_code] = idx_sd
+            logger.info("지수 수집: %s (%d일봉)", idx_code, len(idx_sd.daily))
+        except Exception as e:
+            logger.warning("지수 수집 실패: %s - %s", idx_code, e)
+
     batch_result = BatchResult(
         signals=tuple(signals),
         stock_data_map=stock_data_map,
+        index_data=index_data,
         total_stocks=len(test_stocks),
         success_count=len(test_stocks) - len(failed_codes),
         failed_codes=tuple(failed_codes),
@@ -84,8 +97,16 @@ async def run_test():
         chart_paths = generate_all_charts(tuple(signals), stock_data_map, chart_dir)
         logger.info("차트 생성 완료: %d/%d", len(chart_paths), len(signals))
 
+    index_chart_paths = {}
+    for idx_code, idx_sd in index_data.items():
+        try:
+            path = generate_index_chart(idx_sd, chart_dir)
+            index_chart_paths[idx_code] = path
+        except Exception as e:
+            logger.warning("지수 차트 실패: %s - %s", idx_code, e)
+
     report_config = ReportConfig(output_dir=Path("reports"))
-    report_path = generate_report(batch_result, chart_paths, report_config)
+    report_path = generate_report(batch_result, chart_paths, index_chart_paths, report_config)
     logger.info("보고서 생성 완료: %s", report_path)
 
     return report_path, batch_result
