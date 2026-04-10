@@ -65,13 +65,13 @@ class TestGenerateReport:
     def test_generates_html_file(self, tmp_path: Path) -> None:
         """보고서 HTML 파일이 생성되는지 확인한다."""
         signals = (
-            _make_signal("005930", "삼성전자", "완전매수", 5, dmi=True, stochastic=True, chaikin=True, macd=True, demark=True),
-            _make_signal("000660", "SK하이닉스", "이중매수", 4, dmi=True, stochastic=True, chaikin=True, macd=True),
+            _make_signal("005930", "삼성전자", "완전매수", 4, dmi=True, stochastic=True, chaikin=True, macd=True, demark=True),
+            _make_signal("000660", "SK하이닉스", "완전매수", 4, dmi=True, stochastic=True, chaikin=True, macd=True),
         )
         batch = _make_batch_result(signals=signals)
         config = ReportConfig(output_dir=tmp_path)
 
-        result_path = generate_report(batch, {}, config)
+        result_path = generate_report(batch, {}, config=config)
 
         assert result_path.exists()
         assert result_path.name == "report.html"
@@ -79,13 +79,14 @@ class TestGenerateReport:
     def test_html_contains_required_text(self, tmp_path: Path) -> None:
         """생성된 HTML에 필수 텍스트가 포함되어 있는지 확인한다."""
         signals = (
-            _make_signal("005930", "삼성전자", "완전매수", 5, dmi=True, stochastic=True, chaikin=True, macd=True, demark=True),
-            _make_signal("035420", "NAVER", "기본매수", 2, dmi=True, stochastic=True),
+            _make_signal("005930", "삼성전자", "완전매수", 4, dmi=True, stochastic=True, chaikin=True, macd=True, demark=True),
+            _make_signal("035420", "NAVER", "기본매수", 1, dmi=True),
         )
         batch = _make_batch_result(signals=signals)
-        config = ReportConfig(output_dir=tmp_path)
+        # 기본매수도 표시되도록 min_strength=1로 설정
+        config = ReportConfig(output_dir=tmp_path, min_strength=1)
 
-        result_path = generate_report(batch, {}, config)
+        result_path = generate_report(batch, {}, config=config)
         html = result_path.read_text(encoding="utf-8")
 
         assert "드림팀 스크리닝 보고서" in html
@@ -101,7 +102,7 @@ class TestGenerateReport:
         batch = _make_batch_result(signals=())
         config = ReportConfig(output_dir=tmp_path)
 
-        result_path = generate_report(batch, {}, config)
+        result_path = generate_report(batch, {}, config=config)
 
         assert result_path.exists()
         html = result_path.read_text(encoding="utf-8")
@@ -111,12 +112,12 @@ class TestGenerateReport:
     def test_empty_chart_paths_shows_no_chart(self, tmp_path: Path) -> None:
         """차트 경로가 없을 때 '차트 없음'이 표시되는지 확인한다."""
         signals = (
-            _make_signal("005930", "삼성전자", "완전매수", 5, dmi=True, stochastic=True, chaikin=True, macd=True, demark=True),
+            _make_signal("005930", "삼성전자", "완전매수", 4, dmi=True, stochastic=True, chaikin=True, macd=True, demark=True),
         )
         batch = _make_batch_result(signals=signals)
         config = ReportConfig(output_dir=tmp_path)
 
-        result_path = generate_report(batch, {}, config)
+        result_path = generate_report(batch, {}, config=config)
         html = result_path.read_text(encoding="utf-8")
 
         assert "차트 없음" in html
@@ -127,12 +128,12 @@ class TestGenerateReport:
         chart_file.write_bytes(b"\x89PNG\r\n\x1a\nfake_png_data")
 
         signals = (
-            _make_signal("005930", "삼성전자", "완전매수", 5, dmi=True, stochastic=True, chaikin=True, macd=True, demark=True),
+            _make_signal("005930", "삼성전자", "완전매수", 4, dmi=True, stochastic=True, chaikin=True, macd=True, demark=True),
         )
         batch = _make_batch_result(signals=signals)
         config = ReportConfig(output_dir=tmp_path, embed_charts=True)
 
-        result_path = generate_report(batch, {"005930": chart_file}, config)
+        result_path = generate_report(batch, {"005930": chart_file}, config=config)
         html = result_path.read_text(encoding="utf-8")
 
         assert "data:image/png;base64," in html
@@ -142,18 +143,19 @@ class TestGenerateReport:
         """지표 체크/미체크 마크가 올바르게 표시되는지 확인한다."""
         signals = (
             _make_signal(
-                "005930", "삼성전자", "매수강화", 3,
+                "005930", "삼성전자", "이중매수", 3,
                 dmi=True, stochastic=True, chaikin=True, macd=False, demark=False,
             ),
         )
         batch = _make_batch_result(signals=signals)
-        config = ReportConfig(output_dir=tmp_path)
+        # 이중매수(3단계)도 표시되도록 min_strength=3
+        config = ReportConfig(output_dir=tmp_path, min_strength=3)
 
-        result_path = generate_report(batch, {}, config)
+        result_path = generate_report(batch, {}, config=config)
         html = result_path.read_text(encoding="utf-8")
 
-        assert "강도 3/5" in html
-        assert "매수강화" in html
+        assert "3/4단계" in html
+        assert "이중매수" in html
 
     def test_appendix_contains_failed_codes(self, tmp_path: Path) -> None:
         """부록에 실패 종목 코드가 표시되는지 확인한다."""
@@ -163,7 +165,7 @@ class TestGenerateReport:
         )
         config = ReportConfig(output_dir=tmp_path)
 
-        result_path = generate_report(batch, {}, config)
+        result_path = generate_report(batch, {}, config=config)
         html = result_path.read_text(encoding="utf-8")
 
         assert "999999" in html
@@ -172,13 +174,14 @@ class TestGenerateReport:
     def test_grade_ordering(self, tmp_path: Path) -> None:
         """등급이 올바른 순서로 표시되는지 확인한다 (완전매수 먼저)."""
         signals = (
-            _make_signal("000001", "종목A", "기본매수", 2, dmi=True, stochastic=True),
-            _make_signal("000002", "종목B", "완전매수", 5, dmi=True, stochastic=True, chaikin=True, macd=True, demark=True),
+            _make_signal("000001", "종목A", "기본매수", 1, dmi=True),
+            _make_signal("000002", "종목B", "완전매수", 4, dmi=True, stochastic=True, chaikin=True, macd=True, demark=True),
         )
         batch = _make_batch_result(signals=signals)
-        config = ReportConfig(output_dir=tmp_path)
+        # 기본매수와 완전매수 모두 표시
+        config = ReportConfig(output_dir=tmp_path, min_strength=1)
 
-        result_path = generate_report(batch, {}, config)
+        result_path = generate_report(batch, {}, config=config)
         html = result_path.read_text(encoding="utf-8")
 
         pos_full = html.index("완전매수 (1종목)")
@@ -190,7 +193,7 @@ class TestGenerateReport:
         batch = _make_batch_result()
         config = ReportConfig(output_dir=tmp_path)
 
-        result_path = generate_report(batch, {}, config)
+        result_path = generate_report(batch, {}, config=config)
 
         # 날짜 디렉토리가 YYYY-MM-DD 형식인지 확인
         date_dir = result_path.parent

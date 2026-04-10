@@ -41,11 +41,11 @@ def _make_signal(code: str, strength: int) -> DreamTeamSignal:
     return DreamTeamSignal(
         stock_info=_make_stock_info(code),
         date=date(2024, 1, 20),
-        dmi_signal=True,
+        dmi_signal=strength >= 1,
         stochastic_signal=strength >= 2,
         chaikin_signal=strength >= 3,
         macd_signal=strength >= 4,
-        demark_signal=strength >= 5,
+        demark_signal=False,
         signal_strength=strength,
         signal_grade="기본매수",
     )
@@ -203,7 +203,7 @@ class TestRunBatch:
 
         signals = [
             _make_signal("000001", 1),
-            _make_signal("000002", 5),
+            _make_signal("000002", 4),
             _make_signal("000003", 3),
         ]
 
@@ -221,7 +221,7 @@ class TestRunBatch:
             result = await run_batch(batch_size=10)
 
         strengths = [s.signal_strength for s in result.signals]
-        assert strengths == [5, 3, 1]
+        assert strengths == [4, 3, 1]
 
     @pytest.mark.asyncio
     async def test_multiple_batches(self):

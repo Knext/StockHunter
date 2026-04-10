@@ -4,6 +4,11 @@ from datetime import date, timedelta
 
 import pytest
 
+from src.screener.dream_config import (
+    DMIConfig,
+    DreamIndexConfig,
+    StochasticConfig,
+)
 from src.screener.engine import screen_all, screen_stock, _determine_grade
 from src.screener.types import DreamTeamSignal
 from src.types.ohlcv import OHLCV, StockData
@@ -77,7 +82,7 @@ def _make_stock_data(
 
 
 class TestDetermineGrade:
-    """신호 등급 결정 테스트."""
+    """순차 단계별 등급 결정 테스트."""
 
     def test_no_signal(self):
         assert _determine_grade(0) == ""
@@ -88,14 +93,11 @@ class TestDetermineGrade:
     def test_reinforced_buy(self):
         assert _determine_grade(2) == "매수강화"
 
-    def test_double_buy_3(self):
+    def test_double_buy(self):
         assert _determine_grade(3) == "이중매수"
 
-    def test_double_buy_4(self):
-        assert _determine_grade(4) == "이중매수"
-
     def test_complete_buy(self):
-        assert _determine_grade(5) == "완전매수"
+        assert _determine_grade(4) == "완전매수"
 
 
 class TestScreenStock:
@@ -125,7 +127,7 @@ class TestScreenStock:
         stock = _make_stock_data()
         result = screen_stock(stock)
         if result is not None:
-            assert 0 <= result.signal_strength <= 5
+            assert 1 <= result.signal_strength <= 4
 
     def test_signal_grade_valid(self):
         stock = _make_stock_data()
@@ -152,27 +154,30 @@ class TestScreenStock:
 
     def test_custom_parameters(self):
         stock = _make_stock_data(daily_count=80, weekly_count=50)
-        result = screen_stock(
-            stock,
-            dmi_period=7,
-            stoch_k=5,
-            stoch_d=3,
-            stoch_slowing=3,
+        custom = DreamIndexConfig(
+            dmi=DMIConfig(period=7),
+            stochastic=StochasticConfig(k=5, d=3, slowing=3),
         )
+        result = screen_stock(stock, config=custom)
         assert result is None or isinstance(result, DreamTeamSignal)
 
-    def test_signal_booleans_consistent_with_strength(self):
+    def test_sequential_stage_consistency(self):
+        """signal_strength는 DMI→스토캐스틱→채킨→MACD 순차 단계를 반영한다."""
         stock = _make_stock_data()
         result = screen_stock(stock)
-        if result is not None:
-            bool_count = sum([
-                result.dmi_signal,
-                result.stochastic_signal,
-                result.chaikin_signal,
-                result.macd_signal,
-                result.demark_signal,
-            ])
-            assert result.signal_strength == bool_count
+        if result is None:
+            return
+
+        expected_stage = 0
+        if result.dmi_signal:
+            expected_stage = 1
+            if result.stochastic_signal:
+                expected_stage = 2
+                if result.chaikin_signal:
+                    expected_stage = 3
+                    if result.macd_signal:
+                        expected_stage = 4
+        assert result.signal_strength == expected_stage
 
 
 class TestScreenAll:

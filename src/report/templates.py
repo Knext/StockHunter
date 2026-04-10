@@ -573,7 +573,7 @@ STOCK_CARD_TEMPLATE = """
     <div class="stock-header">
         <span class="stock-name">{name} ({code})</span>
         <span class="stock-meta">{market} · {sector}</span>
-        <span class="badge" style="background: {grade_color};">{grade} (강도 {strength}/5)</span>
+        <span class="badge" style="background: {grade_color};">{grade} ({strength}/4단계)</span>
     </div>
     <div class="chart-container">
         {chart_html}
@@ -712,7 +712,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                             <th>종목명</th>
                             <th>코드</th>
                             <th>등급</th>
-                            <th class="center">강도</th>
+                            <th class="center">단계</th>
                             <th class="center">DMI</th>
                             <th class="center">STO</th>
                             <th class="center">CHK</th>

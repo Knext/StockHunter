@@ -21,6 +21,12 @@ from src.api.schemas import (
     StockDetail,
     StockInfoSchema,
 )
+from src.api.schemas import ChaikinConfig as ChaikinConfigSchema
+from src.api.schemas import DMIConfig as DMIConfigSchema
+from src.api.schemas import DeMarkConfig as DeMarkConfigSchema
+from src.api.schemas import MACDConfig as MACDConfigSchema
+from src.api.schemas import ScreeningConfig as ScreeningConfigSchema
+from src.api.schemas import StochasticConfig as StochasticConfigSchema
 from src.config import Config
 from src.data import krx
 from src.data.cache import CachedDataFetcher
@@ -29,6 +35,7 @@ from src.indicators.demark import calculate_demark
 from src.indicators.dmi import calculate_dmi
 from src.indicators.macd import calculate_macd_oscillator
 from src.indicators.stochastic import calculate_stochastic
+from src.screener.dream_config import load_dream_index_config
 from src.screener.engine import screen_all, screen_stock
 from src.types.ohlcv import StockData
 
@@ -43,13 +50,14 @@ def screen_stocks(
     config: Config = Depends(get_config),
     market: str = Query("ALL", pattern="^(KOSPI|KOSDAQ|ALL)$"),
     codes: str | None = Query(None),
-    min_strength: int = Query(1, ge=1, le=5),
+    min_strength: int = Query(1, ge=1, le=4),
     days: int = Query(200, ge=1, le=1000),
 ) -> ApiResponse[list[ScreenResult]]:
     """드림팀 스크리닝을 실행합니다."""
     try:
+        dream_config = load_dream_index_config()
         stock_data_list = _collect_stock_data(fetcher, config, market, codes, days)
-        signals = screen_all(stock_data_list)
+        signals = screen_all(stock_data_list, config=dream_config)
 
         filtered = [s for s in signals if s.signal_strength >= min_strength]
 
@@ -158,7 +166,7 @@ def get_stock_detail(
     macd_latest = macd_results[-1] if macd_results else None
     demark_latest = demark_results[-1] if demark_results else None
 
-    signal = screen_stock(stock_data)
+    signal = screen_stock(stock_data, config=load_dream_index_config())
 
     detail = StockDetail(
         info=StockInfoSchema(
@@ -206,8 +214,27 @@ def get_stock_detail(
 
 @router.get("/indicators", response_model=ApiResponse[IndicatorConfigResponse])
 def get_indicator_config() -> ApiResponse[IndicatorConfigResponse]:
-    """현재 지표 설정값을 조회합니다."""
-    return ApiResponse(
-        success=True,
-        data=IndicatorConfigResponse(),
+    """현재 지표 설정값을 조회합니다 (dream-index-config.yaml 기반)."""
+    dream_config = load_dream_index_config()
+    response = IndicatorConfigResponse(
+        dmi=DMIConfigSchema(period=dream_config.dmi.period),
+        stochastic=StochasticConfigSchema(
+            k_period=dream_config.stochastic.k,
+            d_period=dream_config.stochastic.d,
+            slowing=dream_config.stochastic.slowing,
+        ),
+        chaikin=ChaikinConfigSchema(
+            fast_period=dream_config.chaikin.fast,
+            slow_period=dream_config.chaikin.slow,
+        ),
+        macd=MACDConfigSchema(
+            fast=dream_config.macd.fast,
+            slow=dream_config.macd.slow,
+            signal=dream_config.macd.signal,
+        ),
+        demark=DeMarkConfigSchema(lookback=dream_config.demark.lookback),
+        screening=ScreeningConfigSchema(
+            lookback_days=dream_config.dmi.lookback_days,
+        ),
     )
+    return ApiResponse(success=True, data=response)

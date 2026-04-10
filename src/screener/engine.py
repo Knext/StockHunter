@@ -1,12 +1,19 @@
 """드림팀 복합 스크리닝 엔진.
 
-5개 지표를 종합하여 매수 신호를 판단한다.
+드림팀 지표의 순차적 4단계 복합 조건으로 매수 신호를 판단한다.
+이전 단계가 충족되어야 다음 단계로 진입할 수 있으며,
+각 단계가 차례대로 충족되어야 해당 등급이 부여된다.
 
-신호 등급:
-- signal_strength 1 (DMI만): "기본매수"
-- signal_strength 2 (DMI + 스토캐스틱): "매수강화"
-- signal_strength 3-4: "이중매수"
-- signal_strength 5: "완전매수"
+순차적 파이프라인 (AND, 순서 고정):
+- 1단계: DMI 매수 신호 → "기본매수"
+- 2단계: 1단계 + 스토캐스틱 매수 강화 → "매수강화"
+- 3단계: 2단계 + 채킨 오실레이터 매수 → "이중매수"
+- 4단계: 3단계 + MACD 오실레이터 주봉 매수 → "완전매수"
+
+드마크는 보완 지표로 별도 기록되며 순차 단계에는 포함되지 않는다.
+signal_strength는 도달한 순차 단계 번호(0-4)를 의미한다.
+
+모든 파라미터는 DreamIndexConfig(dream-index-config.yaml)에서 로드된다.
 """
 
 from src.indicators.chaikin import calculate_chaikin
@@ -14,35 +21,50 @@ from src.indicators.demark import calculate_demark
 from src.indicators.dmi import calculate_dmi
 from src.indicators.macd import calculate_macd_oscillator
 from src.indicators.stochastic import calculate_stochastic
+from src.screener.dream_config import DreamIndexConfig, load_dream_index_config
 from src.screener.types import DreamTeamSignal
 from src.types.ohlcv import StockData
 
+MAX_STAGE = 4
 
-def _determine_grade(strength: int) -> str:
-    """신호 강도에 따른 등급 결정."""
-    if strength <= 0:
+
+def _determine_grade(stage: int) -> str:
+    """순차 단계 번호에 따른 등급 결정."""
+    if stage <= 0:
         return ""
-    if strength == 1:
+    if stage == 1:
         return "기본매수"
-    if strength == 2:
+    if stage == 2:
         return "매수강화"
-    if strength <= 4:
+    if stage == 3:
         return "이중매수"
     return "완전매수"
 
 
+def _sequential_stage(
+    dmi: bool,
+    stoch: bool,
+    chaikin: bool,
+    macd: bool,
+) -> int:
+    """드림팀 지표 순서에 따른 도달 단계를 계산한다.
+
+    앞 단계가 거짓이면 그 이후 단계는 충족되어도 카운트하지 않는다.
+    """
+    if not dmi:
+        return 0
+    if not stoch:
+        return 1
+    if not chaikin:
+        return 2
+    if not macd:
+        return 3
+    return 4
+
+
 def screen_stock(
     stock_data: StockData,
-    dmi_period: int = 14,
-    stoch_k: int = 14,
-    stoch_d: int = 3,
-    stoch_slowing: int = 3,
-    chaikin_fast: int = 3,
-    chaikin_slow: int = 10,
-    macd_fast: int = 12,
-    macd_slow: int = 26,
-    macd_signal: int = 9,
-    demark_lookback: int = 4,
+    config: DreamIndexConfig | None = None,
 ) -> DreamTeamSignal | None:
     """단일 종목을 드림팀 기준으로 스크리닝한다.
 
@@ -53,44 +75,71 @@ def screen_stock(
 
     Args:
         stock_data: 종목 데이터 (일봉 + 주봉)
-        기타: 각 지표 파라미터
+        config: 드림팀 지표 설정. None이면 dream-index-config.yaml을 로드한다.
 
     Returns:
-        DreamTeamSignal 또는 None (신호 없음)
+        DreamTeamSignal 또는 None (신호 없음 = 1단계 미달)
     """
+    if config is None:
+        config = load_dream_index_config()
+
     daily = stock_data.daily
     weekly = stock_data.weekly
 
     if not daily:
         return None
 
-    dmi_results = calculate_dmi(daily, dmi_period)
-    stoch_results = calculate_stochastic(daily, stoch_k, stoch_d, stoch_slowing)
-    chaikin_results = calculate_chaikin(daily, chaikin_fast, chaikin_slow)
-    macd_results = calculate_macd_oscillator(weekly, macd_fast, macd_slow, macd_signal)
-    demark_results = calculate_demark(daily, demark_lookback)
+    dmi_results = calculate_dmi(daily, config.dmi.period)
+    stoch_results = calculate_stochastic(
+        daily,
+        config.stochastic.k,
+        config.stochastic.d,
+        config.stochastic.slowing,
+    )
+    chaikin_results = calculate_chaikin(
+        daily,
+        config.chaikin.fast,
+        config.chaikin.slow,
+    )
+    macd_results = calculate_macd_oscillator(
+        weekly,
+        config.macd.fast,
+        config.macd.slow,
+        config.macd.signal,
+    )
+    demark_results = calculate_demark(daily, config.demark.lookback)
 
     target_date = daily[-1].date
 
-    dmi_signal = _has_recent_signal_dmi(dmi_results, target_date)
-    stoch_signal = _has_recent_signal_stoch(stoch_results, target_date)
-    chaikin_signal = _has_recent_signal_chaikin(chaikin_results, target_date)
-    macd_signal_flag = _has_recent_signal_macd(macd_results)
-    demark_signal = _has_recent_signal_demark(demark_results, target_date)
+    dmi_signal = _has_recent_buy(
+        dmi_results, config.dmi.lookback_days, lambda r: r.buy_signal,
+    )
+    stoch_signal = _has_recent_buy(
+        stoch_results,
+        config.stochastic.lookback_days,
+        lambda r: r.buy_reinforcement,
+    )
+    chaikin_signal = _has_recent_buy(
+        chaikin_results, config.chaikin.lookback_days, lambda r: r.buy_signal,
+    )
+    macd_signal_flag = _has_latest_macd_buy(macd_results)
+    demark_signal = _has_recent_buy(
+        demark_results,
+        config.demark.lookback_days,
+        lambda r: r.setup_complete or r.countdown_complete,
+    )
 
-    signals = [
+    stage = _sequential_stage(
         dmi_signal,
         stoch_signal,
         chaikin_signal,
         macd_signal_flag,
-        demark_signal,
-    ]
-    strength = sum(1 for s in signals if s)
+    )
 
-    if strength == 0:
+    if stage == 0:
         return None
 
-    grade = _determine_grade(strength)
+    grade = _determine_grade(stage)
 
     return DreamTeamSignal(
         stock_info=stock_data.info,
@@ -100,99 +149,49 @@ def screen_stock(
         chaikin_signal=chaikin_signal,
         macd_signal=macd_signal_flag,
         demark_signal=demark_signal,
-        signal_strength=strength,
+        signal_strength=stage,
         signal_grade=grade,
     )
 
 
-def _has_recent_signal_dmi(
-    results: tuple,
-    target_date,
-    lookback_days: int = 5,
-) -> bool:
-    """최근 N일 이내 DMI 매수 신호가 있는지 확인."""
-    if not results:
+def _has_recent_buy(results: tuple, lookback_days: int, predicate) -> bool:
+    """최근 N일 이내 predicate를 만족하는 결과가 있는지 확인."""
+    if not results or lookback_days <= 0:
         return False
-
     for r in reversed(results[-lookback_days:]):
-        if r.buy_signal:
+        if predicate(r):
             return True
     return False
 
 
-def _has_recent_signal_stoch(
-    results: tuple,
-    target_date,
-    lookback_days: int = 5,
-) -> bool:
-    """최근 N일 이내 스토캐스틱 매수 강화가 있는지 확인."""
-    if not results:
-        return False
-
-    for r in reversed(results[-lookback_days:]):
-        if r.buy_reinforcement:
-            return True
-    return False
-
-
-def _has_recent_signal_chaikin(
-    results: tuple,
-    target_date,
-    lookback_days: int = 5,
-) -> bool:
-    """최근 N일 이내 채킨 매수 신호가 있는지 확인."""
-    if not results:
-        return False
-
-    for r in reversed(results[-lookback_days:]):
-        if r.buy_signal:
-            return True
-    return False
-
-
-def _has_recent_signal_macd(
-    results: tuple,
-) -> bool:
+def _has_latest_macd_buy(results: tuple) -> bool:
     """가장 최근 주봉에서 MACD 매수 신호가 있는지 확인."""
     if not results:
         return False
-
     return results[-1].buy_signal
-
-
-def _has_recent_signal_demark(
-    results: tuple,
-    target_date,
-    lookback_days: int = 5,
-) -> bool:
-    """최근 N일 이내 드마크 신호가 있는지 확인."""
-    if not results:
-        return False
-
-    for r in reversed(results[-lookback_days:]):
-        if r.setup_complete or r.countdown_complete:
-            return True
-    return False
 
 
 def screen_all(
     stocks: list[StockData],
-    **kwargs,
+    config: DreamIndexConfig | None = None,
 ) -> list[DreamTeamSignal]:
     """전 종목을 드림팀 기준으로 스크리닝한다.
 
     Args:
         stocks: 종목 데이터 리스트
-        **kwargs: screen_stock에 전달할 파라미터
+        config: 드림팀 지표 설정. None이면 dream-index-config.yaml을 로드한다.
 
     Returns:
         DreamTeamSignal 리스트 (signal_strength 내림차순 정렬)
     """
+    if config is None:
+        config = load_dream_index_config()
+
     results: list[DreamTeamSignal] = []
 
     for stock_data in stocks:
         try:
-            signal = screen_stock(stock_data, **kwargs)
+            signal = screen_stock(stock_data, config=config)
             if signal is not None:
                 results.append(signal)
         except Exception:

@@ -14,6 +14,7 @@ from src.batch.types import BatchResult
 from src.config import load_config
 from src.data.cache import CachedDataFetcher
 from src.data.krx import INDEX_CODES, get_all_stocks, get_index_data
+from src.screener.dream_config import DreamIndexConfig, load_dream_index_config
 from src.screener.engine import screen_stock
 from src.screener.types import DreamTeamSignal
 from src.types.ohlcv import StockData
@@ -49,6 +50,7 @@ async def _process_batch(
     days: int,
     batch_index: int,
     total_batches: int,
+    dream_config: DreamIndexConfig,
 ) -> tuple[list[DreamTeamSignal], dict[str, StockData], list[str]]:
     """단일 배치를 순차 처리합니다.
 
@@ -84,6 +86,7 @@ async def _process_batch(
                 None,
                 screen_stock,
                 stock_data,
+                dream_config,
             )
             if signal is not None:
                 signals.append(signal)
@@ -107,6 +110,7 @@ async def run_batch(
     batch_size: int = 50,
     max_concurrent: int = 3,
     days: int = 365,
+    dream_config: DreamIndexConfig | None = None,
 ) -> BatchResult:
     """전 종목 배치 스크리닝을 실행합니다.
 
@@ -118,6 +122,7 @@ async def run_batch(
         batch_size: 배치당 종목 수
         max_concurrent: 최대 동시 배치 수
         days: 조회할 과거 일수
+        dream_config: 드림팀 지표 설정. None이면 YAML에서 로드한다.
 
     Returns:
         BatchResult (signals는 signal_strength 내림차순 정렬)
@@ -125,6 +130,12 @@ async def run_batch(
     started_at = datetime.now().isoformat()
 
     config = load_config()
+    if dream_config is None:
+        dream_config = load_dream_index_config()
+        logger.info(
+            "드림팀 설정 로드 완료 (min_strength=%d)",
+            dream_config.report.min_strength,
+        )
     fetcher = CachedDataFetcher(config)
 
     loop = asyncio.get_running_loop()
@@ -163,7 +174,7 @@ async def run_batch(
     ) -> tuple[list[DreamTeamSignal], dict[str, StockData], list[str]]:
         async with semaphore:
             return await _process_batch(
-                batch, fetcher, days, batch_index, total_batches,
+                batch, fetcher, days, batch_index, total_batches, dream_config,
             )
 
     tasks = [
@@ -226,6 +237,7 @@ async def run_full_pipeline(
     market: str = "ALL",
     batch_size: int = 50,
     max_concurrent: int = 3,
+    dream_config: DreamIndexConfig | None = None,
 ) -> Path:
     """배치 스크리닝 전체 파이프라인을 실행합니다.
 
@@ -237,6 +249,7 @@ async def run_full_pipeline(
         market: 대상 시장
         batch_size: 배치당 종목 수
         max_concurrent: 최대 동시 배치 수
+        dream_config: 드림팀 지표 설정. None이면 YAML에서 로드한다.
 
     Returns:
         생성된 보고서 파일 경로
@@ -245,10 +258,14 @@ async def run_full_pipeline(
     from src.report.types import ReportConfig
     from src.visualization.chart import generate_all_charts, generate_index_chart
 
+    if dream_config is None:
+        dream_config = load_dream_index_config()
+
     result = await run_batch(
         market=market,
         batch_size=batch_size,
         max_concurrent=max_concurrent,
+        dream_config=dream_config,
     )
 
     logger.info(
@@ -282,7 +299,10 @@ async def run_full_pipeline(
         except Exception:
             logger.warning("지수 차트 생성 실패: %s", idx_code)
 
-    report_config = ReportConfig(output_dir=Path("reports"))
+    report_config = ReportConfig(
+        output_dir=Path("reports"),
+        min_strength=dream_config.report.min_strength,
+    )
     report_path = generate_report(result, chart_paths, index_chart_paths, report_config)
 
     logger.info("파이프라인 완료: %s", report_path.resolve())

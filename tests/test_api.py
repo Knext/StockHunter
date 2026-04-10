@@ -154,13 +154,13 @@ class TestScreenEndpoint:
 
     def test_screen_min_strength_filter(self, client):
         """min_strength 필터가 동작합니다."""
-        response = client.get("/api/screen?codes=005930&min_strength=5")
+        response = client.get("/api/screen?codes=005930&min_strength=4")
 
         assert response.status_code == 200
         body = response.json()
         assert body["success"] is True
         for item in body["data"]:
-            assert item["signal_strength"] >= 5
+            assert item["signal_strength"] >= 4
 
     def test_screen_invalid_min_strength(self):
         """잘못된 min_strength는 422를 반환합니다."""

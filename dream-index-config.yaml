@@ -1,0 +1,43 @@
+# 박문환 드림팀 지표 설정
+#
+# 이 파일은 드림팀 복합 스크리닝의 모든 파라미터를 중앙에서 관리한다.
+# 환경변수 DREAM_INDEX_CONFIG_PATH 로 다른 경로를 지정할 수 있다.
+#
+# 순차 복합조건 (이전 단계 충족이 필수):
+#   1단계 DMI → 2단계 스토캐스틱 → 3단계 채킨 → 4단계 MACD 주봉
+#   드마크는 보완 지표로 순차 단계에 포함되지 않는다.
+
+indicators:
+  # 1단계: DMI (저점 족집게) — 일봉 기준
+  dmi:
+    period: 14
+    lookback_days: 5
+
+  # 2단계: 스토캐스틱 (매수 강화 확인) — 일봉 기준
+  stochastic:
+    k: 14
+    d: 3
+    slowing: 3
+    lookback_days: 5
+
+  # 3단계: 채킨 오실레이터 (수급 확인) — 일봉 기준
+  chaikin:
+    fast: 3
+    slow: 10
+    lookback_days: 5
+
+  # 4단계: MACD 오실레이터 (최종 매수 결정) — 주봉 기준
+  macd:
+    fast: 12
+    slow: 26
+    signal: 9
+
+  # 보완: 드마크 TD Sequential — 일봉 기준
+  demark:
+    lookback: 4
+    lookback_days: 5
+
+report:
+  # 리포트에 포함할 최소 순차 단계 (1-4)
+  # 1: 기본매수 이상 | 2: 매수강화 이상 | 3: 이중매수 이상 | 4: 완전매수만
+  min_strength: 3
