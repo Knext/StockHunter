@@ -89,6 +89,17 @@ MARKET=KOSPI BATCH_SIZE=100 MAX_CONCURRENT=5 python -m src.batch
 
 자동 스케줄 실행을 원하면 `scripts/run_batch.sh`를 launchd/cron에 등록하세요.
 
+### 주간 리포트 자동 배포 (GitHub Actions + Pages)
+
+`.github/workflows/weekly-report.yml`이 매주 금요일 16:00 KST(한국장 마감 후)에 자동으로 배치를 실행하고 결과를 GitHub Pages에 배포합니다.
+
+- **공개 URL**: https://knext.github.io/StockHunter/ (최신 리포트 바로가기 + 최근 4주 이력)
+- **수동 트리거**: GitHub → Actions → `Weekly Dream Team Report` → `Run workflow`
+- **보존 정책**: `scripts/build_index.py`가 최신 4개 주간 폴더만 남기고 자동 정리
+- **캐시**: `actions/cache`로 `.cache/`를 주간 단위로 롤링 저장. 첫 실행은 `stock-cache.zip`에서 시드
+
+GitHub Pages 최초 활성화: 저장소 Settings → Pages → Source를 `gh-pages` 브랜치 `/` (root)로 설정합니다. 워크플로우가 처음 성공하면 `gh-pages` 브랜치가 자동 생성됩니다.
+
 ### 2. API 서버 실행
 
 ```bash
