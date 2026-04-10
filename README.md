@@ -170,6 +170,7 @@ DREAM_INDEX_CONFIG_PATH=/path/to/my-dream.yaml python -m src.batch
 | `DREAM_INDEX_CONFIG_PATH` | `dream-index-config.yaml` | 드림팀 YAML 설정 파일 경로 |
 | `CACHE_DIR` | `.cache` | JSON 캐시 디렉토리 |
 | `CACHE_TTL_HOURS` | `24` | 캐시 유효 시간 (시간) |
+| `CACHE_MAX_HISTORY_DAYS` | `400` | `stock_data` 캐시 파일당 보존할 최대 과거 일수 (MACD 주봉 34주 + 버퍼) |
 | `RATE_LIMIT_SECONDS` | `0.5` | KRX API 호출 간 최소 대기 (초) |
 | `MARKET` | `ALL` | 배치 대상 시장 (`KOSPI`, `KOSDAQ`, `ALL`) |
 | `BATCH_SIZE` | `50` | 배치당 종목 수 |

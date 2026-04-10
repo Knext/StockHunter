@@ -102,6 +102,21 @@ def _merge_daily(
     return tuple(sorted(by_date.values(), key=lambda c: c.date))
 
 
+def _cap_history(
+    daily: tuple[OHLCV, ...],
+    max_days: int,
+) -> tuple[OHLCV, ...]:
+    """최신 캔들 기준 max_days 이내의 일봉만 남깁니다.
+
+    캐시 파일이 장기 누적되지 않도록 쓰기 시점에 적용한다.
+    max_days <= 0이면 트리밍하지 않는다.
+    """
+    if not daily or max_days <= 0:
+        return daily
+    cutoff = daily[-1].date - timedelta(days=max_days)
+    return tuple(c for c in daily if c.date >= cutoff)
+
+
 class CachedDataFetcher:
     """캐시 기능이 있는 KRX 데이터 수집기 (증분 업데이트).
 
@@ -232,19 +247,27 @@ class CachedDataFetcher:
             weekly = krx._daily_to_weekly(trimmed)
 
             result = StockData(info=info, daily=trimmed, weekly=weekly)
+
+            capped = _cap_history(merged, self.config.cache_max_history_days)
             self._write_cache(cache_path, _stock_data_to_dict(
-                StockData(info=info, daily=merged, weekly=krx._daily_to_weekly(merged))
+                StockData(info=info, daily=capped, weekly=krx._daily_to_weekly(capped))
             ))
 
             logger.info(
-                "증분 완료: %s (기존 %d + 신규 %d = 총 %d일)",
-                code, len(cached_daily), len(new_daily), len(merged),
+                "증분 완료: %s (기존 %d + 신규 %d = 병합 %d → 저장 %d일)",
+                code, len(cached_daily), len(new_daily), len(merged), len(capped),
             )
             return result
 
         logger.info("캐시 미스, 전체 조회: %s", code)
         stock_data = krx.get_stock_data(code, days, self.config)
-        self._write_cache(cache_path, _stock_data_to_dict(stock_data))
+        capped_daily = _cap_history(stock_data.daily, self.config.cache_max_history_days)
+        cache_payload = StockData(
+            info=stock_data.info,
+            daily=capped_daily,
+            weekly=krx._daily_to_weekly(capped_daily),
+        )
+        self._write_cache(cache_path, _stock_data_to_dict(cache_payload))
         return stock_data
 
     def get_daily_ohlcv(
