@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>드림팀 주간 스크리닝 리포트</title>
+    <style>
+        :root {
+            --bg: #0b0d10;
+            --panel: #14181d;
+            --text: #e8ecf1;
+            --muted: #8a94a4;
+            --accent: #4ea8ff;
+            --border: rgba(255, 255, 255, 0.08);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 48px 24px;
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        .container { max-width: 720px; margin: 0 auto; }
+        h1 { margin: 0 0 8px; font-size: 28px; font-weight: 700; }
+        .subtitle { color: var(--muted); margin: 0 0 32px; font-size: 14px; }
+        .latest-link {
+            display: inline-block;
+            margin-bottom: 32px;
+            padding: 12px 20px;
+            background: var(--accent);
+            color: #0b0d10;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .latest-link:hover { opacity: 0.9; }
+        .section-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            margin: 0 0 12px;
+        }
+        ul.reports { list-style: none; padding: 0; margin: 0; }
+        .report-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            transition: border-color 0.15s;
+        }
+        .report-card:hover { border-color: var(--accent); }
+        .report-card a {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            color: var(--text);
+            text-decoration: none;
+            font-family: 'SF Mono', Menlo, monospace;
+        }
+        .report-card .date { font-size: 16px; }
+        .report-card .arrow { color: var(--muted); }
+        .empty {
+            padding: 24px;
+            background: var(--panel);
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            text-align: center;
+            color: var(--muted);
+        }
+        footer {
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 12px;
+        }
+        footer a { color: var(--muted); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>드림팀 주간 스크리닝 리포트</h1>
+        <p class="subtitle">박문환 사프슈터 드림팀 지표 기반 한국 주식 스크리너 &middot; 매주 금요일 자동 실행</p>
+
+        <a class="latest-link" href="./2026-04-10/report.html">최신 리포트 바로 열기 (2026-04-10)</a>
+
+        <p class="section-title">최근 리포트 (최대 4주)</p>
+        <ul class="reports">
+        <li class="report-card">
+            <a href="./2026-04-10/report.html">
+                <span class="date">2026-04-10</span>
+                <span class="arrow">&rarr;</span>
+            </a>
+        </li>
+        </ul>
+
+        <footer>
+            생성 시각: 2026-04-10 05:38 UTC &middot;
+            <a href="https://github.com/Knext/StockHunter">소스 저장소</a>
+        </footer>
+    </div>
+</body>
+</html>
