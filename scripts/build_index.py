@@ -77,7 +77,7 @@ def render_index(kept: list[Path], generated_at: datetime) -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>드림팀 주간 스크리닝 리포트</title>
+    <title>드림팀 일간 스크리닝 리포트</title>
     <style>
         :root {{
             --bg: #0b0d10;
@@ -157,12 +157,12 @@ def render_index(kept: list[Path], generated_at: datetime) -> str:
 </head>
 <body>
     <div class="container">
-        <h1>드림팀 주간 스크리닝 리포트</h1>
-        <p class="subtitle">박문환 사프슈터 드림팀 지표 기반 한국 주식 스크리너 &middot; 매주 금요일 자동 실행</p>
+        <h1>드림팀 일간 스크리닝 리포트</h1>
+        <p class="subtitle">박문환 사프슈터 드림팀 지표 기반 한국 주식 스크리너 &middot; 평일(거래일) 매일 자동 실행</p>
 
         {latest_link}
 
-        <p class="section-title">최근 리포트 (최대 4주)</p>
+        <p class="section-title">최근 리포트 (최대 10개)</p>
         <ul class="reports">
 {cards}
         </ul>
@@ -188,8 +188,8 @@ def main() -> int:
     parser.add_argument(
         "--keep",
         type=int,
-        default=4,
-        help="유지할 최신 리포트 개수 (기본 4)",
+        default=10,
+        help="유지할 최신 리포트 개수 (기본 10)",
     )
     args = parser.parse_args()
 

@@ -1,20 +1,56 @@
-name: Weekly Dream Team Report
+name: Daily Dream Team Report
 
 on:
   schedule:
-    # 매주 금요일 16:00 KST = 07:00 UTC (한국장 마감 후)
-    - cron: '0 7 * * 5'
+    # 평일(월~금) 16:00 KST = 07:00 UTC (한국장 마감 후)
+    # 한국 증시 휴일은 check-trading-day 잡에서 추가로 필터링
+    - cron: '0 7 * * 1-5'
   workflow_dispatch:
 
 concurrency:
-  group: weekly-report
+  group: daily-report
   cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
+  check-trading-day:
+    runs-on: ubuntu-latest
+    outputs:
+      is_trading: ${{ steps.check.outputs.is_trading }}
+      today: ${{ steps.check.outputs.today }}
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pykrx
+        run: pip install --quiet "pykrx>=1.0.45"
+
+      - name: Check KRX trading day (KST)
+        id: check
+        run: |
+          python <<'PY'
+          import os
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          from pykrx import stock
+
+          today = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y%m%d")
+          nearest = stock.get_nearest_business_day_in_a_week(today)
+          is_trading = today == nearest
+
+          print(f"today(KST)={today} nearest_business_day={nearest} is_trading={is_trading}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"is_trading={'true' if is_trading else 'false'}\n")
+              f.write(f"today={today}\n")
+          PY
+
   build:
+    needs: check-trading-day
+    if: needs.check-trading-day.outputs.is_trading == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -105,7 +141,7 @@ jobs:
             exit 0
           fi
           git add stock-cache.zip
-          git commit -m "chore(cache): 주간 캐시 번들 갱신 ($REPORT_DATE)"
+          git commit -m "chore(cache): 일간 캐시 번들 갱신 ($REPORT_DATE)"
           # 워크플로우 실행 중 main이 앞서 나갈 수 있으므로 rebase 후 push
           git pull --rebase --autostash origin main
           git push origin HEAD:main
@@ -132,7 +168,7 @@ jobs:
 
       - name: Build index and prune old reports
         run: |
-          python scripts/build_index.py --site-dir site --keep 4
+          python scripts/build_index.py --site-dir site --keep 10
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
@@ -144,4 +180,4 @@ jobs:
           keep_files: false
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'chore(report): ${{ steps.date.outputs.report_date }} 주간 리포트 배포'
+          commit_message: 'chore(report): ${{ steps.date.outputs.report_date }} 일간 리포트 배포'

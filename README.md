@@ -2,7 +2,7 @@
 
 박문환(샤프슈터) 드림팀 지표 기반 한국 주식 스크리너.
 
-KRX(한국거래소) 상장 전 종목을 대상으로 드림팀의 5개 기술적 지표를 **순차적 복합조건**으로 분석하여 매수 신호를 탐지하고, 주간 배치로 HTML 리포트를 생성합니다. REST API로도 단건·다건 스크리닝을 제공합니다.
+KRX(한국거래소) 상장 전 종목을 대상으로 드림팀의 5개 기술적 지표를 **순차적 복합조건**으로 분석하여 매수 신호를 탐지하고, 평일(거래일) 일간 배치로 HTML 리포트를 생성합니다. REST API로도 단건·다건 스크리닝을 제공합니다.
 
 ## 리포트 미리보기
 
@@ -89,14 +89,14 @@ MARKET=KOSPI BATCH_SIZE=100 MAX_CONCURRENT=5 python -m src.batch
 
 자동 스케줄 실행을 원하면 `scripts/run_batch.sh`를 launchd/cron에 등록하세요.
 
-### 주간 리포트 자동 배포 (GitHub Actions + Pages)
+### 일간 리포트 자동 배포 (GitHub Actions + Pages)
 
-`.github/workflows/weekly-report.yml`이 매주 금요일 16:00 KST(한국장 마감 후)에 자동으로 배치를 실행하고 결과를 GitHub Pages에 배포합니다.
+`.github/workflows/daily-report.yml`이 평일(월~금) 16:00 KST(한국장 마감 후)에 자동으로 배치를 실행하고 결과를 GitHub Pages에 배포합니다. 한국 증시 휴일(임시휴장 포함)은 `pykrx`로 거래일 여부를 확인해 자동으로 건너뜁니다.
 
-- **공개 URL**: https://knext.github.io/StockHunter/ (최신 리포트 바로가기 + 최근 4주 이력)
-- **수동 트리거**: GitHub → Actions → `Weekly Dream Team Report` → `Run workflow`
-- **보존 정책**: `scripts/build_index.py`가 최신 4개 주간 폴더만 남기고 자동 정리
-- **캐시**: `actions/cache`로 `.cache/`를 주간 단위로 롤링 저장. 첫 실행은 `stock-cache.zip`에서 시드
+- **공개 URL**: https://knext.github.io/StockHunter/ (최신 리포트 바로가기 + 최근 10개 이력)
+- **수동 트리거**: GitHub → Actions → `Daily Dream Team Report` → `Run workflow` (휴일에도 강제 실행 가능)
+- **보존 정책**: `scripts/build_index.py`가 최신 10개 리포트 폴더만 남기고 자동 정리
+- **캐시**: `actions/cache`로 `.cache/`를 일간 단위로 롤링 저장. 첫 실행은 `stock-cache.zip`에서 시드
 
 GitHub Pages 최초 활성화: 저장소 Settings → Pages → Source를 `gh-pages` 브랜치 `/` (root)로 설정합니다. 워크플로우가 처음 성공하면 `gh-pages` 브랜치가 자동 생성됩니다.
 
