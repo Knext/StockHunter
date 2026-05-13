@@ -26,8 +26,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install pykrx
-        run: pip install --quiet "pykrx>=1.0.45"
+      - name: Install exchange_calendars
+        run: pip install --quiet "exchange_calendars>=4.5"
 
       - name: Check KRX trading day (KST)
         id: check
@@ -36,16 +36,16 @@ jobs:
           import os
           from datetime import datetime
           from zoneinfo import ZoneInfo
-          from pykrx import stock
+          import exchange_calendars as ec
 
-          today = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y%m%d")
-          nearest = stock.get_nearest_business_day_in_a_week(today)
-          is_trading = today == nearest
+          today_kst = datetime.now(ZoneInfo("Asia/Seoul")).date()
+          cal = ec.get_calendar("XKRX")
+          is_trading = bool(cal.is_session(today_kst.isoformat()))
 
-          print(f"today(KST)={today} nearest_business_day={nearest} is_trading={is_trading}")
+          print(f"today(KST)={today_kst.isoformat()} is_trading={is_trading}")
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"is_trading={'true' if is_trading else 'false'}\n")
-              f.write(f"today={today}\n")
+              f.write(f"today={today_kst.strftime('%Y%m%d')}\n")
           PY
 
   build:
