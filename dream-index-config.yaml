@@ -40,4 +40,4 @@ indicators:
 report:
   # 리포트에 포함할 최소 순차 단계 (1-4)
   # 1: 기본매수 이상 | 2: 매수강화 이상 | 3: 이중매수 이상 | 4: 완전매수만
-  min_strength: 3
+  min_strength: 2
